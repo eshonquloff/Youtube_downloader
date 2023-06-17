@@ -1,7 +1,8 @@
 import os
 from aiogram import Bot, Dispatcher, executor, types
-from func import download_video
+from aiogram.bot import base
 from dotenv import load_dotenv
+from pytube import YouTube
 
 load_dotenv()
 
@@ -19,13 +20,19 @@ async def greet_fun(msg: types.Message):
 
 @dp.message_handler()
 async def video_get(msg: types.Message):
-    if msg.text.startswith('https://www.youtube.com/') or msg.text.startswith('https://youtu.be/'):
+    link = msg.text
+    if link.startswith('http'):
         await bot.send_message(msg.chat.id, 'Downloading this video...')
-        video = download_video(msg.text)
-        with open(f'videos/{video.title}.{video.subtype}', 'rb') as f:
-            await bot.send_video(msg.chat.id, video=f, caption=f'{video.title}')
+        from io import BytesIO
+        buffer = BytesIO()
+        url = YouTube(link)
+        if url.check_availability() is None:
+            video = url.streams.get_audio_only()
+            video.stream_to_buffer(buffer=buffer)
+            buffer.seek(0)
+            title = url.title
+            await bot.send_video(msg.chat.id, video=buffer, caption=title, thumb=f'{url.thumbnail_url}')
         await bot.send_message(msg.chat.id, 'Video is successfully downloaded! ✅')
-        os.remove(f'videos/{video.title}.{video.subtype}')
     else:
         await bot.send_message(msg.chat.id, 'Oops! Invalid link🤥')
 
